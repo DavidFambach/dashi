@@ -1,0 +1,173 @@
+<style>
+    /* Main calendar container */
+    .calendar {
+        background-color: #343a40;
+        color: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    /* Calendar header displaying the current month */
+    .calendar-header {
+        text-align: center;
+        margin-bottom: 20px;
+        font-size: 1.5em;
+    }
+
+    /* Container for the table of weeks */
+    .calendar-table {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    /* Each week row */
+    .calendar-row {
+        display: flex;
+        flex: 1;
+        margin-bottom: 2px;
+    }
+
+    /* Each day (cell) in the calendar */
+    .calendar-cell {
+        background-color: #495057;
+        color: #f8f9fa;
+        border-radius: 5px;
+        padding: 10px;
+        margin: 2px;
+        flex: 1;
+        text-align: center;
+        position: relative;
+        box-sizing: border-box;
+    }
+
+    /* Highlight today's date */
+    .calendar-cell.today {
+        background-color: #007bff;
+    }
+
+    /* Dim cells that are outside the current month */
+    .calendar-cell.outside-month {
+        background-color: #6c757d;
+        color: #343a40;
+    }
+
+    /* Entries inside each day, positioned at the bottom */
+    .calendar-cell .entries {
+        position: absolute;
+        top: 40px;
+        left: 5px;
+        right: 5px;
+        font-size: 0.75em;
+        color: #e9ecef;
+        margin-bottom: 10px;
+    }
+
+    .all-day-events, .timed-events {
+        margin-top: 5px;
+        margin-bottom: 5px;
+        border-radius: 8px;
+        background-color: #495057;
+        color: #f8f9fa;
+    }
+</style>
+
+<div id="calendar-container" class="calendar">
+    <!-- loading status of the component -->
+    <div class="calendar-header">Lädt...</div>
+    <div class="calendar-table"></div>
+</div>
+<script src="https://cdn.socket.io/3.1.3/socket.io.min.js" integrity="sha384-cPwlPLvBTa3sKAgddT6krw0cJat7egBga3DJepJyrLl4Q9/5WLra3rrnMcyTyOnh" crossorigin="anonymous"></script>
+<script type="module">
+   const socket = io();
+
+    // Ereignis für Kalenderaktualisierungen verarbeiten
+    socket.on('calendar_update', (data) => {
+        console.log("Received new calendar data:", data);
+        updateCalendar(data);
+    });
+
+    // API endpoint for fetching calendar data
+    const apiEndpoint = "/dashboard/0/api/calendar";
+
+    // Function to load calendar data from the API
+    async function loadCalendarData() {
+        try {
+            // Sending a request to the API
+            const response = await fetch(apiEndpoint);
+
+            // If the response is successful (HTTP status 200–299)
+            if (response.ok) {
+                // Parse the JSON data from the response
+                const data = await response.json();
+                console.log(data.data); // Log the retrieved data for debugging
+                updateCalendar(data.data); // Update the calendar with the new data
+            } else {
+                // Log an error if the response indicates a failure
+                console.error(`Error fetching data: ${response.status}`);
+            }
+        } catch (error) {
+            // Log any network or connection errors
+            console.error("Error connecting to the API:", error);
+        }
+    }
+
+    // Function to update the HTML calendar based on the provided data
+    function updateCalendar(data) {
+        // Get the container element where the calendar will be displayed
+        const container = document.getElementById("calendar-container");
+
+        // Generate the calendar header showing the current month
+        const header = `<div class="calendar-header">${data.current_month}</div>`;
+
+        // Generate the weeks and days
+        const weeksHtml = data.weeks.map(week => {
+            // Generate the HTML for each day in a week
+            const daysHtml = week.map(day => {
+                // Add special styles for today or days outside the current month
+                const isToday = day.date === data.today_day ? "today" : "";
+                const outsideMonth = day.in_month ? "" : "outside-month";
+
+                // Render all-day events
+                const allDayEventsHtml = day.all_day_events.map(event =>
+                    `<div class="all-day-events" style="background: ${event.background}; color: ${event.color};">${event.title}</div>`
+                ).join(""); // Join all events into a single HTML string
+
+                // Render timed events with start times
+                const timedEventsHtml = day.timed_events.map(event =>
+                    `<div class="timed-events" style="background: ${event.background}; color: ${event.color};">
+                        <b>${event.start_time}</b> - ${event.title}
+                    </div>`
+                ).join(""); // Join all events into a single HTML string
+
+                // Combine the styles, date, and events into a calendar cell
+                return `
+                    <div class="calendar-cell ${isToday} ${outsideMonth}">
+                        ${day.date}
+                        <div class="entries">
+                            ${allDayEventsHtml}
+                            ${timedEventsHtml}
+                        </div>
+                    </div>
+                `;
+            }).join(""); // Join all day cells into a single HTML row
+
+            // Wrap the days in a week row
+            return `<div class="calendar-row">${daysHtml}</div>`;
+        }).join(""); // Join all week rows into a single HTML structure
+
+        // Update the calendar container with the new header and table structure
+        container.innerHTML = header + `<div class="calendar-table">${weeksHtml}</div>`;
+    }
+
+    // Set an interval to fetch and update data every 2 minutes (120,000 ms)
+    // setInterval(loadCalendarData, 0.5 * 60 * 1000);
+
+    // Initial data load when the page is first opened
+    loadCalendarData();
+    console.log("loadCalendarData()")
+</script>

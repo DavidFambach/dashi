@@ -1,0 +1,197 @@
+<style>
+    /* Main weather section styling */
+    .weather {
+        background-color: #495057;
+        color: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+    }
+
+    /* Individual weather card styling */
+    .weather-card {
+        background-color: #6c757d;
+        border: none;
+        border-radius: 8px;
+        color: #f8f9fa;
+        text-align: center;
+        margin-right: 15px;
+        flex: 1;
+    }
+
+    /* Padding for card body */
+    .weather-card .card-body {
+        padding: 15px;
+    }
+
+    /* Today's weather card styling */
+    .today-card {
+        background-color: #343a40;
+        border: none;
+        border-radius: 8px;
+        color: #f8f9fa;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    /* Padding for today's card body */
+    .today-card .card-body {
+        padding: 20px;
+    }
+
+    /* Flexbox layout for today’s weather fields */
+    .today-weather-container {
+        display: flex;
+        justify-content: space-between; /* Space between fields */
+        flex-wrap: nowrap; /* Prevent wrapping */
+        align-items: center;
+    }
+
+    /* Individual time point styling for today's weather */
+    .time-point {
+        flex: 1; /* Allow each time point to grow equally */
+        margin: 5px; /* Margin around each time point */
+        padding: 10px 0; /* Padding around the time point */
+        background-color: #6c757d; /* Gray background */
+        border-radius: 5px; /* Rounded corners */
+        min-width: 80px; /* Minimum width for each field */
+        text-align: center; /* Center-align text */
+    }
+
+    /* Reset margin for paragraphs within time points */
+    .time-point p {
+        margin: 0; /* No margin for paragraphs */
+    }
+
+    /* Styling for minimum temperature display */
+    .min-temp {
+        color: #5bc0de; /* Light blue color for minimum temperature */
+    }
+
+    /* Flexbox layout for the forecast cards */
+    .d-flex {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+
+    /* Vertical separator styling */
+    .separator {
+        width: 2px;
+        background-color: #6c757d;
+        margin: 0 10px;
+        height: 80px;
+    }
+</style>
+<div class="weather">
+    <!-- Detailed today card with dynamic time points -->
+    <div class="card today-card">
+        <div class="card-body">
+            <h5 class="card-title">Heute</h5>
+            <div class="today-weather-container">
+                <!-- Zeitpunkte für das heutige Wetter werden hier dynamisch eingefügt -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Forecast cards for upcoming days -->
+    <div class="d-flex">
+        <!-- Prognosekarten für die nächsten Tage werden hier dynamisch eingefügt -->
+    </div>
+</div>
+<script src="https://cdn.socket.io/3.1.3/socket.io.min.js"
+        integrity="sha384-cPwlPLvBTa3sKAgddT6krw0cJat7egBga3DJepJyrLl4Q9/5WLra3rrnMcyTyOnh"
+        crossorigin="anonymous"></script>
+<script>
+    /**
+     * Represents a socket connection to the server.
+     * Utilizes the Socket.IO library to establish and manage real-time, bi-directional communication
+     * between the client and server. This facilitated connection can be used to send and receive events.
+     *
+     * The `socket` instance is initialized using the `io()` function provided by Socket.IO,
+     * which usually connects to the server-side socket.
+     *
+     * Example usage might include listening for messages or emitting events to the server.
+     */
+    const socket = io();
+
+    // Funktion zum Aktualisieren der Wetterkomponente
+    function updateWeather(data) {
+        // Heute aktualisieren
+        const todayContainer = document.querySelector(".today-weather-container");
+        todayContainer.innerHTML = data.weather_today.map((point, index, array) => {
+            // Check if current point's dt is smaller than the previous point's dt
+            const separator = index !== 0 && point.dt < array[index - 1].dt
+                ? `<div class="separator"></div>`
+                : "";
+
+            // Return separator (if needed) plus the weather information
+            return `
+            ${separator}
+            <div class="time-point">
+                <p>${point.dt}</p>
+                <img src="${point.icon}" alt="Weather Icon" style="width: 40px; height: auto;">
+                <p>${point.temp}°C</p>
+            </div>
+        `;
+        }).join("");
+
+        // Prognosen aktualisieren
+        const forecastContainer = document.querySelector(".d-flex");
+        forecastContainer.innerHTML = data.weather_data.map(day => `
+            <div class="card weather-card">
+                <div class="card-body">
+                    <h5 class="card-title">${day.day}</h5>
+                    <img src="${day.icon}" alt="Weather Icon">
+                    <p class="card-text">
+                        <span class="min-temp">${day.temp_min}°C</span> / ${day.temp_max}°C
+                    </p>
+                </div>
+            </div>
+        `).join("");
+    }
+
+    // Ereignis für Wetteraktualisierungen
+    socket.on('weather_update', (data) => {
+        console.log("New weather data received:", data);
+        updateWeather(data.data);
+    });
+
+    // API endpoint for fetching calendar data
+    const apiEndpoint = "/dashboard/0/api/weather";
+
+    // Function to load calendar data from the API
+    async function loadWeatherData() {
+        try {
+            // Sending a request to the API
+            const response = await fetch(apiEndpoint);
+
+            // If the response is successful (HTTP status 200–299)
+            if (response.ok) {
+                // Parse the JSON data from the response
+                const data = await response.json();
+                console.log(data.data); // Log the retrieved data for debugging
+                updateWeather(data.data); // Update the calendar with the new data
+            } else {
+                // Log an error if the response indicates a failure
+                console.error(`Error fetching data: ${response.status}`);
+            }
+        } catch (error) {
+            // Log any network or connection errors
+            console.error("Error connecting to the API:", error);
+        }
+    }
+
+    // Optional: Nachricht bei Verbindungsaufbau
+    socket.on('connect', () => {
+        console.log("Connected to WebSocket server!");
+    });
+
+    // Fehlermeldung bei Verbindungsverlust
+    socket.on('disconnect', () => {
+        console.log("Disconnected from WebSocket server!");
+    });
+
+    // Initial data load when the page is first opened
+    loadWeatherData();
+    console.log("loadWeatherData()")
+</script>

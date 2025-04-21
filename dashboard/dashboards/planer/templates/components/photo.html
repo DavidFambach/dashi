@@ -1,0 +1,106 @@
+<div class="photo-container">
+    <img id="photo" src="" alt="Slideshow Photo" style="height: 100%;">
+    <!-- Image element where the current slideshow photo will be displayed -->
+    <div id="time-overlay" class="overlay top-left">00:00:00</div>
+    <!-- Overlay displaying the current time, initially set to 00:00:00 -->
+</div>
+
+<script>
+    let photoIndex = 0;  // Initial index of the photo in the slideshow
+    let photos = [];  // Array to store photo data
+    let data = [];
+
+    // Function to fetch the list of photos based on the dashboard
+    async function fetchPhotos() {
+        const response = await fetch(`{{ url_prefix }}/pictures`);  // API call to fetch photos
+        if (response.ok) {
+            data = await response.json();  // Parse the photo data
+            photos = data.data;
+            console.log("Photos loaded:", photos);  // Debugging: Log loaded photos to the console
+            preloadImages(photos);  // Preload images for smoother transitions
+            if (photos.length > 0) {
+                updateSlideshow();  // Display the correct photo based on the current time
+                startSlideshow();  // Start the slideshow
+            }
+        } else {
+            console.error('Error fetching photos:', response.statusText);  // Handle errors if the request fails
+        }
+    }
+
+    // Preloads images into the browser cache
+    function preloadImages(images) {
+        images.forEach(photo => {
+            const img = new Image();  // Create a new Image object
+            img.src = photo.url;  // Set the image URL to load it into the cache
+        });
+    }
+
+    // Updates the current time displayed in the overlay
+    function updateTime() {
+        const now = new Date();  // Get the current time
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const currentTime = `${hours}:${minutes}`;  // Format the time as HH:MM
+        document.getElementById("time-overlay").innerText = currentTime;  // Update the time overlay
+    }
+
+    // Function to display the correct photo based on the current time
+    function updateSlideshow() {
+        const now = new Date();  // Get the current time
+        const minutes = now.getMinutes();  // Get the current minute of the hour
+
+        const interval = Math.floor(60 / photos.length);  // Calculate the time interval for each photo (e.g., 10 minutes if there are 6 photos)
+        photoIndex = Math.floor(minutes / interval) % photos.length;  // Determine which photo to show based on the current minute
+
+        displayPhoto(photoIndex);  // Display the photo corresponding to the current time
+    }
+
+    // Function to display the photo at the given index
+    function displayPhoto(index) {
+        if (photos.length === 0) return;  // Safety check: Ensure there are photos to display
+
+        const photo = photos[index];  // Select the photo at the given index
+        const imgElement = document.getElementById('photo');
+
+        // Reset and set the image source to force reload
+        imgElement.src = '';  // Clear the image source
+        imgElement.src = photo.url;  // Set the new image URL
+
+        console.log("Displaying photo:", photo.url);  // Debugging: Log the photo URL to the console
+
+        // Handle image load errors by hiding the image and displaying an error message
+        imgElement.onerror = function () {
+            imgElement.style.display = 'none';  // Hide the image if it can't be loaded
+            document.getElementById('location-overlay').innerText = "Image could not be loaded";  // Show error message
+        };
+    }
+
+    // Starts the slideshow by updating the photo based on the current time
+    function startSlideshow() {
+        const now = new Date();
+        const secondsUntilNextInterval = (60 - now.getSeconds()) * 1000;  // Calculate the time until the next full minute
+
+        // Display the correct photo based on the current time
+        setTimeout(() => {
+            updateSlideshow();  // Update the photo exactly at the next full minute
+
+            // After the initial update, continue to update the photo every full minute
+            setInterval(() => {
+                updateSlideshow();  // Update the photo based on the current time
+            }, 60000);  // Update the slideshow every 60 seconds (1 minute)
+        }, secondsUntilNextInterval);  // Start at the next full minute
+    }
+
+    // Start updating the time overlay every second
+    function startClock() {
+        updateTime();  // Initial time update
+        setInterval(updateTime, 1000);  // Update time every second
+    }
+
+    // Initialization: Fetch photos and start the clock when the window loads
+    window.onload = async function() {
+        await fetchPhotos();  // Fetch the photos for the slideshow
+        startClock();  // Start the clock overlay
+    };
+</script>
+

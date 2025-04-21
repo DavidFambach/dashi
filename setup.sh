@@ -3,7 +3,7 @@
 set -e
 
 # === CONFIGURATION ===
-KIOSK_URL="https://time.is"
+KIOSK_URL="https://127.0.0.1/dashboard/0"
 DEFAULT_USER="dashi"
 CURRENT_USER=$(logname)
 LOGFILE="/var/log/kiosk-setup.log"
@@ -206,6 +206,12 @@ else
 	
 									   
 fi
+
+
+# === INSTALL WEBSERVER ===
+PATH="/home/$USER/dashi/"
+mv ./dashboard $PATH/dashboard
+./dashboard/setup.sh "$USER" "$PATH"
 
 
 # === FINAL MESSAGE ===
