@@ -6,7 +6,7 @@ set -e
 KIOSK_URL="https://127.0.0.1/dashboard/0"
 DEFAULT_USER="dashi"
 CURRENT_USER=$(logname)
-LOGFILE="/var/log/kiosk-setup.log"
+LOGFILE="./kiosk-setup.log"
 
 # === COLORS FOR LOGGING ===
 GREEN="\033[1;32m"
