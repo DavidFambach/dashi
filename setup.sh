@@ -209,10 +209,12 @@ fi
 
 
 # === INSTALL WEBSERVER ===
-PATH="/home/$USER/dashi/"
-mv ./dashboard $PATH/dashboard
-./dashboard/setup.sh "$USER" "$PATH"
-
+APPPATH="/home/$USER/dashi/"
+sudo mkdir $APPPATH
+sudo mv dashboard/ $APPPATH/dashboard/
+sudo chmod +x "$APPPATH/dashboard/setup.sh"
+sudo "$APPPATH/dashboard/setup.sh" "$USER" "$APPPATH"
+cd
 
 # === FINAL MESSAGE ===
 echo ""
