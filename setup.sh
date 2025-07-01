@@ -120,6 +120,7 @@ chromium-browser \"$KIOSK_URL\" \\
   --window-position=0,0 \\
   --start-fullscreen \\
   --kiosk \\
+  --no-memcheck \\
   --incognito \\
   --noerrdialogs \\
   --disable-translate \\
@@ -138,75 +139,6 @@ log ".xinitrc created and configured"
 # === DISABLE HDMI OVERSCAN ===
 info "🖼️ Disabling HDMI overscan..."
 sudo sed -i '/^#disable_overscan=1/s/^#//' /boot/config.txt || true
-
-# === CHROMIUM MEMORY PATCH ===
-info "🧠 Checking if Chromium needs patching..."
-CHROMIUM_LAUNCHER="$(command -v chromium-browser || command -v chromium)"
-
-if [[ ! -x "$CHROMIUM_LAUNCHER" ]]; then
-  error "Chromium launcher not found"
-else
-  TOTAL_RAM_KB=$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)
-
-  CHROMIUM_BLOCK_LINES=(
-    'if [ $want_memcheck -eq 1 ]; then'
-    '  memkb=$(awk '\''/^MemTotal/{print $2; exit}'\'' /proc/meminfo)'
-    '  if [ $memkb -le 524288 ]; then'
-    '    if ! display_qstn "$lowmem" "$lowmemok"; then'
-    '            exit 1'
-    '    fi'
-    '  fi'
-    'fi'
-  )
-
-  # Function to locate memory check block in script
-  match_block() {
-    local file="$1"
-    local -n block="$2"
-    mapfile -t lines < "$file"
-
-    for ((i = 0; i <= ${#lines[@]} - ${#block[@]}; i++)); do
-      local match=true
-      for ((j = 0; j < ${#block[@]}; j++)); do
-        local file_line="$(echo "${lines[i + j]}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-        local block_line="$(echo "${block[j]}"     | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-        if [[ "$file_line" != "$block_line" ]]; then
-          match=false
-          break
-        fi
-      done
-      if $match; then
-        echo "$i"
-        return 0
-      fi
-    done
-    return 1
-  }
-
-  if [[ "$TOTAL_RAM_KB" -le 524288 ]]; then
-    info "⚙️ System has ≤1GB RAM — checking Chromium memory check..."
-    if grep -q "memcheck" "$CHROMIUM_LAUNCHER"; then
-      BLOCK_START_LINE=$(match_block "$CHROMIUM_LAUNCHER" CHROMIUM_BLOCK_LINES)
-      if [[ $? -eq 0 ]]; then
-        log "Chromium memory check block found at line $((BLOCK_START_LINE + 1))"
-        sudo cp "$CHROMIUM_LAUNCHER" "${CHROMIUM_LAUNCHER}.bak"
-        for ((k = 0; k < ${#CHROMIUM_BLOCK_LINES[@]}; k++)); do
-          sudo sed -i "$((BLOCK_START_LINE + k + 1))s/^/#/" "$CHROMIUM_LAUNCHER"
-        done
-        log "Chromium launcher patched successfully (backup created)"
-      else
-        warn "Expected Chromium block not found or already modified"
-      fi
-    else
-      info "Chromium launcher does not contain memory check logic"
-    fi
-  else
-    info "🧠 System has more than 1GB RAM, no Chromium patch needed"
-  fi
-	
-									   
-fi
-
 
 # === INSTALL WEBSERVER ===
 APPPATH="/home/$USER/dashi/"
