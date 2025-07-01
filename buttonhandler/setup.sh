@@ -47,8 +47,8 @@ setup_service() {
     sed -i \
       -e "s|{{PROJECT_DIR}}|$PROJECT_DIR|g" \
       -e "s|{{USER}}|$USER|g" \
-      dashi-dashboard.service
-    sudo mv "$PROJECT_DIR"/dashi-dashboard.service /etc/systemd/system/dashi-buttonhandler.service
+      dashi-buttonhandler.service
+    sudo mv "$PROJECT_DIR"/dashi-buttonhandler.service /etc/systemd/system/dashi-buttonhandler.service
     sudo systemctl daemon-reload
     sudo systemctl enable dashi-buttonhandler.service
     sudo systemctl start dashi-buttonhandler.service
