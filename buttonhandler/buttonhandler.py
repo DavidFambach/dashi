@@ -1,3 +1,4 @@
+  GNU nano 7.2                                                 buttonhandler.py
 #!/usr/bin/python3
 from signal import pause
 from threading import Timer
@@ -5,6 +6,10 @@ from gpiozero import Button, MotionSensor
 import os
 import subprocess
 import logging
+
+env = os.environ.copy()
+env['DISPLAY'] = ':0'
+env['XAUTHORITY'] = '/home/dashi/.Xauthority'
 
 # ─── Setup Logging ───────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -29,20 +34,14 @@ def screen_off():
     Turns off the screen by using xset DPMS command.
     """
     logging.info("Screen turned off due to inactivity.")
-    subprocess.run(
-        ['xset', 'dpms', 'force', 'off'],
-        env={**os.environ, 'DISPLAY': ':0'}
-    )
+    subprocess.run(['xset', 'dpms', 'force', 'off'], env=env)
 
 def screen_on():
     """
     Turns on the screen by using xset DPMS command.
     """
     logging.info("Screen turned on.")
-    subprocess.run(
-        ['xset', 'dpms', 'force', 'on'],
-        env={**os.environ, 'DISPLAY': ':0'}
-    )
+    subprocess.run(['xset', 'dpms', 'force', 'on'],  env=env)
 
 def reboot():
     """
