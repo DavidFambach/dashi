@@ -5,6 +5,13 @@ set -e
 # === GET VARIABLES FROM MAIN SCRIPT ===
 USER=$1
 PROJECT_DIR=$2/buttonhandler
+# Find full path to python3
+PYTHON_PATH=$(which python3)
+if [ -z "$PYTHON_PATH" ]; then
+  echo "python3 not found in PATH."
+  exit 1
+fi
+echo "Using python path: $PYTHON_PATH"
 
 # Function to change the hardware acceleration driver to enable "vcgencmd display_power"
 change_hardware_acceleration_driver() {
@@ -41,6 +48,23 @@ reboot_system() {
     sudo reboot
 }
 
+add_sudoers_entry() {
+    # Create sudoers entry
+    SUDOERS_ENTRY="$USER ALL=(ALL) NOPASSWD: $PYTHON_PATH $PROJECT_DIR/buttonhandler.py"
+    
+    # Backup sudoers file
+    echo "Backing up sudoers file to /etc/sudoers.bak"
+    sudo cp /etc/sudoers /etc/sudoers.bak
+    
+    # Check if entry already exists, add if not
+    if sudo grep -Fxq "$SUDOERS_ENTRY" /etc/sudoers; then
+      echo "Sudoers entry already exists."
+    else
+      echo "Adding sudoers entry for passwordless execution..."
+      echo "$SUDOERS_ENTRY" | sudo EDITOR='tee -a' visudo > /dev/null
+    fi
+}
+
 # === SETUP SYSTEMD SERVICE ===
 setup_service() {
     echo "Setting up systemd service..."
@@ -60,6 +84,7 @@ install() {
 
     # Call the individual functions in the order of execution
     change_hardware_acceleration_driver
+    add_sudoers_entry
     setup_service
     reboot_system
 }
