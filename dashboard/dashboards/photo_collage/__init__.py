@@ -1,10 +1,8 @@
 import shutil
 import os
-import io
-from random import random, randint
+from random import randint
 
-import qrcode
-from flask import Blueprint, render_template, jsonify, send_file
+from flask import Blueprint, render_template, jsonify
 
 # Define a Blueprint for the Party Collage dashboard
 blueprint = Blueprint('photo_collage', __name__,
@@ -31,15 +29,6 @@ def api_photos():
         DUMMY_PHOTOS.append("https://picsum.photos/400?random=" + str(i))
 
     return jsonify(DUMMY_PHOTOS)
-
-@blueprint.route('/qrcode')
-def qr_code():
-    # Generate QR code pointing to upload endpoint
-    img = qrcode.make("http://localhost:5000/dashboard/0/upload")
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    buf.seek(0)
-    return send_file(buf, mimetype="image/png")
 
 @blueprint.route('/upload')
 def upload_page():
