@@ -1,12 +1,14 @@
+import logging
 import os
+from contextlib import contextmanager
 from datetime import datetime, timedelta, date
 
-from dashboard.DataEndpoint import DataEndpoint
+from data_sources.DataEndpoint import DataEndpoint
 
 from typing import List
 
 import caldav
-from flask import jsonify
+from flask import json
 
 
 class Calendar (DataEndpoint):
@@ -36,35 +38,6 @@ class Calendar (DataEndpoint):
         """
         return "calendar"
 
-    def fetch_data(self):
-        """
-        API endpoint to fetch the latest data.
-
-        :return: JSON response containing the endpoint data or an error message.
-        """
-        data = self.get_data()  # Retrieve current data
-        # temp_data_file = os.path.join(self.temp_data_dir, f"{self.get_endpoint_name()}.json")
-
-        # Load the last saved data if available
-        # if os.path.exists(temp_data_file):
-        #     last_data = self._read_dict_from_json(temp_data_file)
-        # else:
-        #     self._write_dict_to_json(data, temp_data_file)
-        #
-        # self._write_dict_to_json(data, temp_data_file)  # Update saved data
-
-        # Return 304 if there is no new data
-        if data == self.last_data:
-            return "No new data", 304
-
-        self.last_data = data
-
-        # Return updated data
-        return jsonify({
-            "endpoint": self.get_endpoint_name(),
-            "last_update_time": datetime.now().timestamp(),
-            "data": data
-        }), 200
 
 def generate_weeks(start_date, current_month):
     """
@@ -92,15 +65,15 @@ def generate_weeks(start_date, current_month):
                         day_events['timed'].append({
                             'title': event['title'],
                             'start_time': event_start.strftime('%H:%M'),
-                            'background': get_event_color(event['calendar'])[0],
-                            'color': get_event_color(event['calendar'])[1]
+                            'background': get_event_color(event['calendar']).get('main'),
+                            'color': get_event_color(event['calendar']).get('font')
                         })
                 elif isinstance(event_start, date):  # All-day events
                     if event_start == day.date():
                         day_events['all_day'].append({
                             'title': event['title'],
-                            'background': get_event_color(event['calendar'])[0],
-                            'color': get_event_color(event['calendar'])[1]
+                            'background': get_event_color(event['calendar']).get('main'),
+                            'color': get_event_color(event['calendar']).get('font')
                         })
 
             # Sort timed events by start time
@@ -136,23 +109,34 @@ def fetch_events(start_date: datetime, end_date: datetime) -> List:
     principal = client.principal()
     calendars = principal.calendars()
 
-
+    raw = os.getenv('CALENDAR', '{}')
+    displayed_calendars = json.loads(raw)
 
     for calendar in calendars:
-        if calendar.name != 'Katha' and calendar.name != 'David' and calendar.name != 'Mealplanner ':
+        if calendar.name not in displayed_calendars:
             continue
-
-        events = calendar.date_search(start=start_date, end=end_date)
+        with suppress_icalendar_compatibility_warning():
+            events = calendar.date_search(start=start_date, end=end_date)
 
         for event in events:
-            vevent = event.vobject_instance.vevent
-            title = vevent.summary.value
-            start = vevent.dtstart.value
-            end = vevent.dtend.value if hasattr(vevent, 'dtend') else start
-            all_day = isinstance(start, date) and not hasattr(vevent.dtstart.value, 'time')
+            vevents = event.vobject_instance.contents.get("vevent")
+            for vevent in vevents:
+                title = vevent.summary.value
+                start = vevent.dtstart.value
+                event_start_date = start.date() if isinstance(start, datetime) else start
+                end = vevent.dtend.value if hasattr(vevent, 'dtend') else start
+                event_end_date = end.date() if isinstance(end, datetime) else end
+                all_day = isinstance(start, date) and not hasattr(vevent.dtstart.value, 'time')
+                event_days = (event_end_date - event_start_date).days + (0 if all_day else 1)
 
-            event_obj = {'title': title, 'calendar': calendar.name, 'start': start, 'end': end, 'all_day': all_day}
-            events_list.append(event_obj)
+                for event_day in range(event_days):
+
+                    event_obj = {'title': title,
+                                 'calendar': calendar.name,
+                                 'start': start + timedelta(days=event_day),
+                                 'end': end + timedelta(days=event_day),
+                                 'all_day': all_day}
+                    events_list.append(event_obj)
 
     return events_list
 
@@ -163,9 +147,39 @@ def get_event_color(calendar_name):
     :param calendar_name: Name of the calendar.
     :return: A tuple with the background color and text color.
     """
-    color_mapping = {
-        'Katha': ('#be7125', '#000'),
-        'David': ('#9747fd', '#fff'),
-        'Mealplanner ': ('#fff', '#000'),
-    }
-    return color_mapping.get(calendar_name, ('#6c757d', '#000'))  # Default color if calendar is not mapped
+
+    raw = os.getenv('CALENDAR', '{}')
+    color_mapping = json.loads(raw)
+
+    return color_mapping.get(calendar_name, {'main':'#6c757d', 'font':'#000'})  # Default color if calendar is not mapped
+
+
+@contextmanager
+def suppress_icalendar_compatibility_warning():
+    """
+    Context manager to suppress the specific warning about icalendar data being modified
+    for compatibility. This prevents cluttering the log output with harmless warnings
+    caused by invalid CalDAV server data.
+    """
+    logger = logging.getLogger()
+    original_handlers = logger.handlers[:]
+
+    class IcalendarCompatibilityWarningFilter(logging.Filter):
+        """
+        Filters out a known, harmless warning related to non-standard iCalendar data
+        that is automatically fixed by the caldav/icalendar library.
+        """
+        def filter(self, record):
+            return "Ical data was modified to avoid compatibility issues" not in record.getMessage()
+
+    # Set up a temporary log handler with the filter applied
+    temp_handler = logging.StreamHandler()
+    temp_handler.setLevel(logging.WARNING)
+    temp_handler.addFilter(IcalendarCompatibilityWarningFilter())
+
+    logger.handlers = [temp_handler]
+    try:
+        yield
+    finally:
+        # Restore the original handlers
+        logger.handlers = original_handlers

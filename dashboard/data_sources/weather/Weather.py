@@ -5,7 +5,7 @@ from datetime import timedelta, datetime
 
 from flask import jsonify
 
-from dashboard.DataEndpoint import DataEndpoint
+from data_sources.DataEndpoint import DataEndpoint
 
 
 class Weather (DataEndpoint):
@@ -29,7 +29,6 @@ class Weather (DataEndpoint):
         # if response.status_code != 200:
         #     raise Exception(f"Error fetching data: {data.get('message', 'Unknown error')}")
 
-        print(self._process_weather_data(data))
         return self._process_weather_data(data)
 
     def get_endpoint_name(self):

@@ -70,9 +70,13 @@
     .all-day-events, .timed-events {
         margin-top: 5px;
         margin-bottom: 5px;
+        padding: 5px;
         border-radius: 8px;
         background-color: #495057;
         color: #f8f9fa;
+        overflow:
+        hidden;
+        text-overflow: ellipsis;
     }
 </style>
 
@@ -83,7 +87,7 @@
 </div>
 <script src="https://cdn.socket.io/3.1.3/socket.io.min.js" integrity="sha384-cPwlPLvBTa3sKAgddT6krw0cJat7egBga3DJepJyrLl4Q9/5WLra3rrnMcyTyOnh" crossorigin="anonymous"></script>
 <script type="module">
-   const socket = io();
+   const socket = io({ transports: ['websocket'] });
 
     // Ereignis für Kalenderaktualisierungen verarbeiten
     socket.on('calendar_update', (data) => {
@@ -92,7 +96,7 @@
     });
 
     // API endpoint for fetching calendar data
-    const apiEndpoint = "/dashboard/0/api/calendar";
+    const apiEndpoint = "/api/calendar";
 
     // Function to load calendar data from the API
     async function loadCalendarData() {
@@ -165,7 +169,7 @@
     }
 
     // Set an interval to fetch and update data every 2 minutes (120,000 ms)
-    // setInterval(loadCalendarData, 0.5 * 60 * 1000);
+    // setInterval(loadCalendarData, 0.1 * 60 * 1000);
 
     // Initial data load when the page is first opened
     loadCalendarData();

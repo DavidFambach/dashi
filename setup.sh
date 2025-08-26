@@ -116,7 +116,8 @@ xset -dpms
 xset s off
 xset s noblank
 unclutter &
-chromium-browser \"$KIOSK_URL\" \\
+chromium-browser
+  --no-memcheck
   --window-position=0,0 \\
   --start-fullscreen \\
   --kiosk \\
@@ -128,7 +129,8 @@ chromium-browser \"$KIOSK_URL\" \\
   --disable-features=TranslateUI \\
   --disk-cache-dir=/dev/null \\
   --overscroll-history-navigation=0 \\
-  --disable-pinch
+  --disable-pinch \\
+  \"$KIOSK_URL\"
 EOF"
 
 sudo chmod +x "$XINITRC"
@@ -215,6 +217,29 @@ sudo mv dashboard/ $APPPATH/dashboard/
 sudo chmod +x "$APPPATH/dashboard/setup.sh"
 sudo "$APPPATH/dashboard/setup.sh" "$USER" "$APPPATH"
 cd
+
+
+# === DISABLE WI-FI POWER SAVING ===
+# Disable Wi-Fi power saving permanently using a udev rule
+
+UDEV_RULE_PATH="/etc/udev/rules.d/70-wifi-powersave.rules"
+UDEV_RULE='ACTION=="add", SUBSYSTEM=="net", KERNEL=="wlan*", RUN+="/sbin/iw dev %k set power_save off"'
+
+echo "Creating udev rule to disable Wi-Fi power save mode..."
+
+# Write the udev rule
+echo "$UDEV_RULE" | sudo tee "$UDEV_RULE_PATH" > /dev/null
+
+# Set correct permissions (optional, usually not needed)
+sudo chmod 644 "$UDEV_RULE_PATH"
+
+echo "Reloading udev rules..."
+sudo udevadm control --reload
+sudo udevadm trigger
+
+echo "✅ Wi-Fi power save mode will now be disabled automatically at boot for wlan interfaces."
+echo "Reboot or replug the Wi-Fi interface to apply the rule."
+
 
 # === FINAL MESSAGE ===
 echo ""

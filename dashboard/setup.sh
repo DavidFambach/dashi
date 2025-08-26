@@ -4,7 +4,7 @@ set -e
 
 # === GET VARIABLES FROM MAIN SCRIPT ===
 USER=$1
-PROJECT_DIR=$2/dashboard
+PROJECT_DIR="$2"dashboard
 
 # === CREATE PYTHON VIRTUAL ENVIRONMENT ===
 python3 -m venv "$PROJECT_DIR"/venv
@@ -23,3 +23,5 @@ sudo mv "$PROJECT_DIR"/dashi-dashboard.service /etc/systemd/system/dashi-dashboa
 sudo systemctl daemon-reload
 sudo systemctl enable dashi-dashboard.service
 sudo systemctl start dashi-dashboard.service
+
+sudo chown -R $USER:$USER /home/$USER

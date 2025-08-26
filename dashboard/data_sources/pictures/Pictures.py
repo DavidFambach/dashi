@@ -1,9 +1,11 @@
 import os
 from datetime import datetime
-from dashboard.extensions import app
-from dashboard.DataEndpoint import DataEndpoint
+from extensions import app
+from data_sources.DataEndpoint import DataEndpoint
 from flask import jsonify
 
+# Ensure the photos directory exists; create it if it does not
+os.makedirs(os.path.join(app.static_folder, 'photos'), exist_ok=True)
 
 class Pictures (DataEndpoint):
 

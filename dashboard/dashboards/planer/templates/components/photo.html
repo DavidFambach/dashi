@@ -12,7 +12,7 @@
 
     // Function to fetch the list of photos based on the dashboard
     async function fetchPhotos() {
-        const response = await fetch(`{{ url_prefix }}/pictures`);  // API call to fetch photos
+        const response = await fetch(`/api/pictures`);  // API call to fetch photos
         if (response.ok) {
             data = await response.json();  // Parse the photo data
             photos = data.data;

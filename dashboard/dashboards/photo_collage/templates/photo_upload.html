@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Quadratischer Bild-Upload</title>
+  <style>
+    body {
+      margin:0; display:flex; justify-content:center; align-items:center;
+      min-height:100vh; background:#0b0f14; color:#e6edf3; font-family:sans-serif;
+    }
+    .wrap { width:min(90vw,420px); }
+    .stage { position:relative; }
+    .frame {
+      position:relative; width:100%; padding-top:100%;
+      background:#121820; border:2px dashed #4ea4ff55;
+      border-radius:12px; overflow:hidden;
+    }
+    .outside, .image-layer { position:absolute; inset:0; overflow:hidden; }
+    .outside { opacity:.35; pointer-events:none; }
+    .frame input[type=file] {
+      position:absolute; inset:0; opacity:0; cursor:pointer; z-index:2;
+    }
+    .frame.has-image input { display:none; }
+    .hint {
+      position:absolute; inset:0; display:flex; align-items:center;
+      justify-content:center; text-align:center; color:#9fb0c3;
+    }
+    .frame.has-image .hint { display:none; }
+    img {
+      display:block; max-width:none; max-height:none;
+      user-select:none; pointer-events:none;
+    }
+    .buttons {
+      display:flex; gap:12px; margin-top:12px;
+    }
+    button {
+      flex:1; padding:12px; font-size:16px; border:none;
+      border-radius:10px; cursor:pointer;
+    }
+    .clear { background:#ff6b6b; color:#fff; }
+    .submit { background:#4ea4ff; color:#000; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="stage">
+      <div class="frame" id="frame">
+        <div class="hint">Zieh ein Bild hierher<br>oder tippe, um hochzuladen</div>
+        <input type="file" id="fileInput" accept="image/*">
+        <div class="outside"><img id="imgOutside"></div>
+        <div class="image-layer"><img id="img"></div>
+      </div>
+    </div>
+    <div class="buttons">
+      <button class="clear" id="clearBtn">Löschen</button>
+      <button class="submit" id="submitBtn">Submit</button>
+    </div>
+  </div>
+
+<script>
+const frame=document.getElementById('frame'),
+      fileInput=document.getElementById('fileInput'),
+      img=document.getElementById('img'),
+      imgOutside=document.getElementById('imgOutside'),
+      clearBtn=document.getElementById('clearBtn'),
+      submitBtn=document.getElementById('submitBtn');
+
+const state={scale:1,tx:0,ty:0,imgW:0,imgH:0,pointers:new Map(),lastDist:null,isDown:false};
+
+// Hilfsfunktion: Transformation anwenden
+function applyTransform(){
+  const t=`translate(${state.tx}px,${state.ty}px) scale(${state.scale})`;
+  img.style.transform=t; imgOutside.style.transform=t;
+}
+
+// Bild an Frame anpassen und zentrieren
+function fitToFrame(){
+  const r=frame.getBoundingClientRect();
+  const s=Math.max(r.width/state.imgW,r.height/state.imgH);
+  state.scale=s;
+  // zentrieren
+  state.tx=(r.width-(state.imgW*s))/2;
+  state.ty=(r.height-(state.imgH*s))/2;
+  applyTransform();
+}
+
+// Neues Bild laden
+function loadFile(file){
+  if(!file) return;
+  const url=URL.createObjectURL(file);
+  const tmp=new Image();
+  tmp.onload=()=>{
+    state.imgW=tmp.naturalWidth;
+    state.imgH=tmp.naturalHeight;
+    img.src=url; imgOutside.src=url;
+    frame.classList.add('has-image');
+    fitToFrame();
+  };
+  tmp.src=url;
+}
+
+// Bild löschen
+function clearImage(){
+  img.src=imgOutside.src='';
+  fileInput.value='';
+  frame.classList.remove('has-image');
+  state.scale=1; state.tx=state.ty=0; state.pointers.clear();
+  applyTransform();
+}
+
+// Upload
+fileInput.addEventListener('change',e=>{
+  if(e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+// Drag & Drop Upload
+['dragenter','dragover'].forEach(evt=>{
+  frame.addEventListener(evt,e=>{
+    if(!img.src){ e.preventDefault(); }
+  });
+});
+frame.addEventListener('drop',e=>{
+  if(!img.src){ e.preventDefault(); loadFile(e.dataTransfer.files[0]); }
+});
+
+// Zoom bei Mauszeiger
+function zoomAt(x,y,factor){
+  const rect=frame.getBoundingClientRect();
+  const cx=x-rect.left, cy=y-rect.top;
+  const prev=state.scale;
+  const next=Math.min(8,Math.max(0.2,prev*factor));
+  const ix=(cx-state.tx)/prev, iy=(cy-state.ty)/prev;
+  state.tx=cx-ix*next; state.ty=cy-iy*next; state.scale=next;
+  applyTransform();
+}
+
+// Desktop Zoom
+frame.addEventListener('wheel',e=>{
+  if(!img.src)return; e.preventDefault();
+  zoomAt(e.clientX,e.clientY,Math.exp(-e.deltaY*0.001));
+},{passive:false});
+
+// Panning + Pinch
+frame.addEventListener('pointerdown',e=>{
+  if(!img.src)return;
+  frame.setPointerCapture(e.pointerId);
+  state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(state.pointers.size===1) state.isDown=true;
+});
+window.addEventListener('pointermove',e=>{
+  if(!img.src)return;
+  if(state.pointers.size===1 && state.isDown){
+    const p=state.pointers.get(e.pointerId); if(!p)return;
+    const dx=e.clientX-p.x,dy=e.clientY-p.y;
+    state.tx+=dx; state.ty+=dy;
+    state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    applyTransform();
+  } else if(state.pointers.size>=2){
+    state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    const pts=[...state.pointers.values()];
+    const d=Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y);
+    if(!state.lastDist){state.lastDist=d;return;}
+    const factor=d/state.lastDist;
+    zoomAt((pts[0].x+pts[1].x)/2,(pts[0].y+pts[1].y)/2,factor);
+    state.lastDist=d;
+  }
+});
+window.addEventListener('pointerup',e=>{
+  state.pointers.delete(e.pointerId);
+  if(state.pointers.size<2) state.lastDist=null;
+  if(state.pointers.size===0) state.isDown=false;
+});
+
+// Buttons
+clearBtn.onclick=clearImage;
+submitBtn.onclick=()=>{
+  if(!img.src)return;
+  alert('Submit! (hier könnte Upload passieren)');
+  clearImage();
+};
+
+// Refit bei Resize
+window.addEventListener('resize',()=>{if(img.src) fitToFrame();});
+</script>
+</body>
+</html>

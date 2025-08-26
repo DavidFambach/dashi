@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Party Collage Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #212529;
+            color: #f8f9fa;
+            overflow: hidden;
+        }
+
+        .collage-board {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .photo {
+            position: absolute;
+            width: 180px;
+            padding: 10px;
+            background: white;
+            border: 1px solid #ddd;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.4);
+            transition: transform 0.3s ease;
+        }
+
+        .photo img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .qrcode {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: white;
+            padding: 5px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="collage-board" id="collage">
+        <div class="qrcode" id="qrcode">
+
+        </div>
+    </div>
+
+    <script>
+        const board = document.getElementById("collage");
+const photoWidth = 200;
+const photoHeight = 220;
+const noCollisionFraction = 0.2; // 20% der Breite/Höhe als No-Collision-Zone für andere Bilder
+
+// Hilfsfunktion: Bounding-Box nach Rotation berechnen
+function getRotatedBoundingBox(x, y, w, h, angleDeg) {
+    const rad = angleDeg * Math.PI / 180;
+    const cos = Math.abs(Math.cos(rad));
+    const sin = Math.abs(Math.sin(rad));
+    const bw = w * cos + h * sin;
+    const bh = w * sin + h * cos;
+    // Zentrum beibehalten
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    return {
+        x: cx - bw / 2,
+        y: cy - bh / 2,
+        w: bw,
+        h: bh
+    };
+}
+
+async function loadPhotos() {
+    let res = await fetch("/dashboard/0/api/photos");
+    let photos = await res.json();
+
+    // Alte Bilder entfernen
+    board.querySelectorAll(".photo").forEach(p => p.remove());
+
+    const boardRect = board.getBoundingClientRect();
+    const placed = [];
+
+    // QR-Code-Element berücksichtigen
+    const qr = document.getElementById("qrcode");
+    let qrRectAbsolute = null;
+    if (qr) {
+        const qrRect = qr.getBoundingClientRect();
+        qrRectAbsolute = {
+            x: qrRect.left - boardRect.left,
+            y: qrRect.top - boardRect.top,
+            w: qrRect.width,
+            h: qrRect.height
+        };
+    }
+
+    photos.forEach(url => {
+        let photo = document.createElement("div");
+        photo.className = "photo";
+        let img = document.createElement("img");
+        img.src = url;
+        photo.appendChild(img);
+
+        // Zufällige Rotation
+        const angle = (Math.random() - 0.5) * 30; // -15 bis +15 Grad
+        photo.style.transform = `rotate(${angle}deg)`;
+
+        let tries = 0;
+        const maxTries = 100;
+        let placedOk = false;
+        let x, y;
+
+        while (!placedOk && tries < maxTries) {
+            x = Math.random() * (boardRect.width - photoWidth);
+            y = Math.random() * (boardRect.height - photoHeight);
+
+            // Rotierte Bounding-Box für No-Collision-Zone
+            const zone = getRotatedBoundingBox(
+                x + photoWidth/2 - photoWidth*noCollisionFraction/2,
+                y + photoHeight/2 - photoHeight*noCollisionFraction/2,
+                photoWidth * noCollisionFraction,
+                photoHeight * noCollisionFraction,
+                angle
+            );
+
+            // Prüfe Kollision mit anderen Bildern
+            const collidesWithPhotos = placed.some(p => {
+                const overlapX = Math.max(0, Math.min(zone.x + zone.w, p.x + p.w) - Math.max(zone.x, p.x));
+                const overlapY = Math.max(0, Math.min(zone.y + zone.h, p.y + p.h) - Math.max(zone.y, p.y));
+                return overlapX > 0 && overlapY > 0;
+            });
+
+            // Prüfe Kollision mit QR-Code (komplettes Rechteck, keine Rotation)
+            const collidesWithQR = qrRectAbsolute ? (
+                Math.max(0, Math.min(x + photoWidth, qrRectAbsolute.x + qrRectAbsolute.w) - Math.max(x, qrRectAbsolute.x)) > 0 &&
+                Math.max(0, Math.min(y + photoHeight, qrRectAbsolute.y + qrRectAbsolute.h) - Math.max(y, qrRectAbsolute.y)) > 0
+            ) : false;
+
+            placedOk = !collidesWithPhotos && !collidesWithQR;
+            tries++;
+        }
+
+        if (placedOk) {
+            placed.push(getRotatedBoundingBox(x, y, photoWidth, photoHeight, angle));
+            photo.style.left = x + "px";
+            photo.style.top = y + "px";
+            board.appendChild(photo);
+        } else {
+            console.warn("Konnte Foto nicht platzieren:", url);
+        }
+    });
+}
+
+loadPhotos();
+setInterval(loadPhotos, 30000);
+
+
+    </script>
+    <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+    <script>
+        // Create a QR Code instance with some basic options.
+        var qrcode = new QRCode(document.getElementById("qrcode"), {
+          text: "https://example.com",
+          width: 80,
+          height: 80,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H
+        });
+    </script>
+</body>
+</html>

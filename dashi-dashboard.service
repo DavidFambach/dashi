@@ -1,0 +1,13 @@
+[Unit]
+Description=Flask webserver hosting the dashboard
+After=network.target
+
+[Service]
+Type=idle
+Restart=on-failure
+User=root
+WorkingDirectory=/opt/dashi/dashboard
+ExecStart=/opt/dashi/dashboard/venv/bin/python3 app.py
+
+[Install]
+WantedBy=multi-user.target
