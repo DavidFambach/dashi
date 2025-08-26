@@ -21,7 +21,7 @@ def dashboard():
 
     # url_prefix = get_blueprint_url_prefix(blueprint)
     # Render the template and pass the data to it
-    return render_template('photo_collage.html', url_prefix="dashboard/0")
+    return render_template('dashboard.html', url_prefix="dashboard/0")
 
 
 def get_blueprint_url_prefix(blueprint):
