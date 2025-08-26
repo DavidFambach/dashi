@@ -1,0 +1,13 @@
+[Unit]
+Description=Dashi Buttonhandler Service
+After=network.target
+
+[Service]
+Type=simple
+User={{USER}}
+WorkingDirectory={{PROJECT_DIR}}
+ExecStart=sudo /usr/bin/python3 {{PROJECT_DIR}}/buttonhandler.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
