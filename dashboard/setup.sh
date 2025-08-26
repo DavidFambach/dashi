@@ -18,7 +18,7 @@ echo "Setting up systemd service..."
 sed -i \
   -e "s|{{PROJECT_DIR}}|$PROJECT_DIR|g" \
   -e "s|{{USER}}|$USER|g" \
-  dashi-dashboard.service
+  "$PROJECT_DIR"/dashi-dashboard.service
 sudo mv "$PROJECT_DIR"/dashi-dashboard.service /etc/systemd/system/dashi-dashboard.service
 sudo systemctl daemon-reload
 sudo systemctl enable dashi-dashboard.service
