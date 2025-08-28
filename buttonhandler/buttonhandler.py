@@ -1,4 +1,3 @@
-  GNU nano 7.2                                                 buttonhandler.py
 #!/usr/bin/python3
 from signal import pause
 from threading import Timer
