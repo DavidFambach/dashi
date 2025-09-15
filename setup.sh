@@ -78,6 +78,7 @@ if ! sudo apt-get install --no-install-recommends -y \
   xserver-xorg-core \
   xinit \
   x11-xserver-utils \
+  openbox \
   chromium-browser \
   unclutter 2>&1 | logfile; then
   error "Package installation failed – check $LOGFILE"
@@ -116,8 +117,9 @@ xset -dpms
 xset s off
 xset s noblank
 unclutter &
-chromium-browser
-  --no-memcheck
+openbox-session &
+exec chromium-browser \\
+  --no-memcheck \\
   --window-position=0,0 \\
   --start-fullscreen \\
   --kiosk \\
